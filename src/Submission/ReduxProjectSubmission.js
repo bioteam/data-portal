@@ -4,6 +4,8 @@ import SubmitTSV from './SubmitTSV';
 import SubmitForm from './SubmitForm';
 import sessionMonitor from '../SessionMonitor';
 import ReduxDataModelGraph, { getCounts } from '../DataModelGraph/ReduxDataModelGraph';
+import Papa from 'papaparse';
+import {  apiPath } from '../localconf';
 
 import { fetchWithCreds } from '../actions';
 import { predictFileType } from '../utils';
@@ -73,6 +75,62 @@ const submitToServer = (fullProject, methodIn = 'PUT') => (dispatch, getState) =
   dispatch({
     type: 'RESET_SUBMISSION_STATUS',
   });
+
+  const parsed = Papa.parse(file, {
+    delimiter: "\t",
+    header: true
+  })
+
+  // logic:
+  // user submits tsv of cases
+  // on TSV submit: scan for records of type=case
+  // if submitter_id is empty, generate new one
+  // query case (project_id=tsv.project_id): submitter_id
+  // last 4 digits, parse as int, inc +1, set for new case
+  // submit
+
+  const submitterIsRequired = parsed.meta.fields.find(o => o === "*submitter_id");
+  const projectIsRequired = parsed.meta.fields.find(o => o === "*project_id");
+
+  const submitterFieldName = submitterIsRequired ? "*submitter_id" : "submitter_id";
+  const projectFieldName = projectIsRequired ? "*project_id" : "project_id";
+
+  Promise.all(parsed.data.map(async (row) => {
+    let newID = row[submitterFieldName];
+    const projID = row[projectFieldName];
+
+    if ( newID === "" ) {
+      newID = await fetchWithCreds({
+        path: `${apiPath}v0/submission/graphql/`,
+        method: "POST",
+        body: JSON.stringify({
+          query: `query {
+              case(project_id: "${projID}", first: 1, order_by_desc:"submitter_id") {
+                id
+                submitter_id
+              }
+            }`,
+          variables: null
+        })
+      }).then(({ status, data }) => {
+        switch (status) {
+        case 200:
+          const lastFourInt = parseInt(data.data.case[0].submitter_id.slice(-4), 10) + 1;
+
+          // padding
+          return `${projID}${("0000" + lastFourInt).slice(-4)}`;
+        default:
+          return row.submitter_id;
+        }
+      });
+    }
+
+    return {...row, [submitterFieldName]: newID};
+  })).then((newRows) => {
+    console.log(newRows)
+  });
+
+
 
   if (!file) {
     return Promise.reject('No file to submit');
