@@ -11,7 +11,7 @@
     "@fortawesome/free-solid-svg-icons": "^5.2.0",
     "@fortawesome/react-fontawesome": "^0.1.0",
     "@gen3/guppy": "^0.7.0",
-    "@gen3/ui-component": "^0.5.4",
+    "@gen3/ui-component": "github:bioteam/gen3-ui-component",
     "@storybook/addon-actions": "^5.0.0",
     "@storybook/react": "^5.0.0",
     "brace": "^0.10.0",
@@ -150,12 +150,12 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/uc-cdis/data-portal.git"
+    "url": "git+https://github.com/bioteam/data-portal.git"
   },
   "author": "philloooo",
   "license": "ISC",
   "bugs": {
-    "url": "https://github.com/uc-cdis/data-portal/issues"
+    "url": "https://github.com/bioteam/data-portal/issues"
   },
-  "homepage": "https://github.com/uc-cdis/data-portal#readme"
+  "homepage": "https://github.com/bioteam/data-portal#readme"
 }
