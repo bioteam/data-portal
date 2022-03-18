@@ -81,13 +81,15 @@ const submitToServer = (fullProject, methodIn = 'PUT') => (dispatch, getState) =
     header: true
   })
 
-  // logic:
-  // user submits tsv of cases
-  // on TSV submit: scan for records of type=case
-  // if submitter_id is empty, generate new one
-  // query case (project_id=tsv.project_id): submitter_id
-  // last 4 digits, parse as int, inc +1, set for new case
-  // submit
+  /*
+  logic:
+  user submits tsv of cases
+  on TSV submit: scan for records of type=case
+  if submitter_id is empty, generate new one
+  query case (project_id=tsv.project_id): submitter_id
+  last 4 digits, parse as int, inc +1, set for new case
+  submit
+  */
 
   const submitterIsRequired = parsed.meta.fields.find(o => o === "*submitter_id");
   const projectIsRequired = parsed.meta.fields.find(o => o === "*project_id");
@@ -95,9 +97,13 @@ const submitToServer = (fullProject, methodIn = 'PUT') => (dispatch, getState) =
   const submitterFieldName = submitterIsRequired ? "*submitter_id" : "submitter_id";
   const projectFieldName = projectIsRequired ? "*project_id" : "project_id";
 
+  const inxMap = {};
+
   Promise.all(parsed.data.map(async (row) => {
     let newID = row[submitterFieldName];
     const projID = row[projectFieldName];
+
+    if ( !inxMap[projID] ) inxMap[projID] = 1;
 
     if ( newID === "" ) {
       newID = await fetchWithCreds({
@@ -108,6 +114,9 @@ const submitToServer = (fullProject, methodIn = 'PUT') => (dispatch, getState) =
               case(project_id: "${projID}", first: 1, order_by_desc:"submitter_id") {
                 id
                 submitter_id
+                projects {
+                  dbgap_accession_number
+                }
               }
             }`,
           variables: null
@@ -115,10 +124,13 @@ const submitToServer = (fullProject, methodIn = 'PUT') => (dispatch, getState) =
       }).then(({ status, data }) => {
         switch (status) {
         case 200:
-          const lastFourInt = parseInt(data.data.case[0].submitter_id.slice(-4), 10) + 1;
+          const lastFourInt = parseInt(data.data.case[0].submitter_id.slice(-4), 10) + inxMap[projID];
+          inxMap[projID] += 1;
+
+          const dbGapNumPrefix = data.data.case[0].projects[0].dbgap_accession_number;
 
           // padding
-          return `${projID}${("0000" + lastFourInt).slice(-4)}`;
+          return `${dbGapNumPrefix}${("0000" + lastFourInt).slice(-4)}`;
         default:
           return row.submitter_id;
         }
@@ -129,7 +141,6 @@ const submitToServer = (fullProject, methodIn = 'PUT') => (dispatch, getState) =
   })).then((newRows) => {
     console.log(newRows)
   });
-
 
 
   if (!file) {
