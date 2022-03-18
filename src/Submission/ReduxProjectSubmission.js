@@ -63,7 +63,20 @@ const fetchPrograms = () => dispatch =>
       })
     .then(msg => dispatch(msg));
 
-const submitToServer = (fullProject, methodIn = 'PUT') => (dispatch, getState) => {
+
+const promiseMemoize = (fn, cache) => {
+  return (...args) => {
+    let strX = JSON.stringify(args);
+    return strX in cache ? cache[strX]
+      : (cache[strX] = fn(...args).catch((x) => {
+          delete cache[strX];
+          return x;
+        }));
+  };
+};
+
+
+const submitToServer = (fullProject, methodIn = 'PUT') => async (dispatch, getState) => {
   const fileArray = [];
   const path = fullProject.split('-');
   const program = path[0];
@@ -76,11 +89,6 @@ const submitToServer = (fullProject, methodIn = 'PUT') => (dispatch, getState) =
     type: 'RESET_SUBMISSION_STATUS',
   });
 
-  const parsed = Papa.parse(file, {
-    delimiter: "\t",
-    header: true
-  })
-
   /*
   logic:
   user submits tsv of cases
@@ -90,6 +98,32 @@ const submitToServer = (fullProject, methodIn = 'PUT') => (dispatch, getState) =
   last 4 digits, parse as int, inc +1, set for new case
   submit
   */
+ let cache = {};
+
+  const fetchCaseForSubmitterIDGen = promiseMemoize((projID) => {
+    return fetchWithCreds({
+      path: `${apiPath}v0/submission/graphql/`,
+      method: "POST",
+      body: JSON.stringify({
+        query: `query {
+            case(project_id: "${projID}", first: 1, order_by_desc:"submitter_id") {
+              id
+              submitter_id
+              projects {
+                dbgap_accession_number
+              }
+            }
+          }`,
+        variables: null
+      })
+    });
+  }, cache);
+
+  const parserConfig =  {
+    delimiter: "\t",
+    header: true
+  };
+  const parsed = Papa.parse(file, parserConfig);
 
   const submitterIsRequired = parsed.meta.fields.find(o => o === "*submitter_id");
   const projectIsRequired = parsed.meta.fields.find(o => o === "*project_id");
@@ -99,29 +133,16 @@ const submitToServer = (fullProject, methodIn = 'PUT') => (dispatch, getState) =
 
   const inxMap = {};
 
-  Promise.all(parsed.data.map(async (row) => {
+  const newRows = await Promise.all(parsed.data.map(async (row) => {
+    if ( row["*type"] !== "case" ) return row;
+    
     let newID = row[submitterFieldName];
     const projID = row[projectFieldName];
 
     if ( !inxMap[projID] ) inxMap[projID] = 1;
 
     if ( newID === "" ) {
-      newID = await fetchWithCreds({
-        path: `${apiPath}v0/submission/graphql/`,
-        method: "POST",
-        body: JSON.stringify({
-          query: `query {
-              case(project_id: "${projID}", first: 1, order_by_desc:"submitter_id") {
-                id
-                submitter_id
-                projects {
-                  dbgap_accession_number
-                }
-              }
-            }`,
-          variables: null
-        })
-      }).then(({ status, data }) => {
+      newID = await fetchCaseForSubmitterIDGen(projID).then(({ status, data }) => {
         switch (status) {
         case 200:
           const lastFourInt = parseInt(data.data.case[0].submitter_id.slice(-4), 10) + inxMap[projID];
@@ -138,10 +159,9 @@ const submitToServer = (fullProject, methodIn = 'PUT') => (dispatch, getState) =
     }
 
     return {...row, [submitterFieldName]: newID};
-  })).then((newRows) => {
-    console.log(newRows)
-  });
+  }));
 
+  file = Papa.unparse(newRows, parserConfig);
 
   if (!file) {
     return Promise.reject('No file to submit');
