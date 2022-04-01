@@ -2,7 +2,7 @@ import React from 'react';
 import PropTypes from 'prop-types';
 import './DataDictionaryTable.css';
 import { parseDictionaryNodes } from '../../utils';
-import DataDictionaryCategory from '../DataDictionaryCategory/.';
+import DataDictionaryCategory from '../DataDictionaryCategory';
 
 /**
  * Just exported for testing
@@ -15,16 +15,16 @@ import DataDictionaryCategory from '../DataDictionaryCategory/.';
 /* eslint-disable no-param-reassign */
 export function category2NodeList(dictionary) {
   /* helpers for the helper */
-  const idFilter = id => id.charAt(0) !== '_' && id === dictionary[id].id;
+  const idFilter = (id) => id.charAt(0) !== '_' && id === dictionary[id].id;
 
-  const categoryFilter = node => node.category && node.id && node.category.toLowerCase() !== 'internal';
+  const categoryFilter = (node) => node.category && node.id && node.category.toLowerCase() !== 'internal';
 
   const res = Object.keys(dictionary).filter(
-    id => idFilter(id),
+    (id) => idFilter(id),
   ).map(
-    id => dictionary[id],
+    (id) => dictionary[id],
   ).filter(
-    node => categoryFilter(node),
+    (node) => categoryFilter(node),
   )
     .reduce(
       (lookup, node) => {
@@ -60,27 +60,41 @@ const getNodePropertyCount = (dictionary) => {
  *
  * @param {dictionary} params
  */
-const DataDictionaryTable = ({ dictionary, highlightingNodeID, onExpandNode, dictionaryName }) => {
+const DataDictionaryTable = ({
+  dictionary, highlightingNodeID, onExpandNode, dictionaryName,
+}) => {
   const c2nl = category2NodeList(dictionary);
   const { nodesCount, propertiesCount } = getNodePropertyCount(dictionary);
   return (
     <React.Fragment>
       <p>
-        <span>{dictionaryName}</span>
-        <span> dictionary has </span>
-        <span>{nodesCount}</span>
-        <span> nodes and </span>
-        <span>{propertiesCount}</span>
-        <span> properties </span>
+      <span>
+          <b>Partners:</b>
+          Download the Case JSON or TSV template and enter your specimen information.<br />
+          Once all fields are completed, click on the Submit button to upload your file.<br />
+          RIPHL IDs will be provided once all cases are uploaded.<br />
+          Alternatively, you can enter each sample using the webform found on the Submit page.<br />
+        </span>
+        <span>
+          <b>CDPH staff:</b>
+          Download the CDPH JSON or TSV template and enter your specimen information.<br />
+          Once all fields are completed, click on the Submit button to upload your file.<br />
+        </span>
+        <span>
+          <b>RIPHL staff:</b>
+          Download the LAB JSON or TSV template and enter your specimen information.<br />
+          Once all fields are completed, click on the Submit button to upload your file.<br />
+        </span>
       </p>
-      {Object.keys(c2nl).map(category =>
-        (<DataDictionaryCategory
+      {Object.keys(c2nl).map((category) => (
+        <DataDictionaryCategory
           key={category}
           nodes={c2nl[category]}
           category={category}
           highlightingNodeID={highlightingNodeID}
           onExpandNode={onExpandNode}
-        />))}
+        />
+      ))}
     </React.Fragment>
   );
 };
