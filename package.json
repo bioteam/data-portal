@@ -14,6 +14,7 @@
     "@gen3/ui-component": "github:bioteam/gen3-ui-component",
     "@storybook/addon-actions": "^5.0.0",
     "@storybook/react": "^5.0.0",
+    "antd": "^3.26.20",
     "brace": "^0.10.0",
     "clipboard-plus": "^1.0.0",
     "css-loader": "^3.4.2",
